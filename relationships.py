@@ -1,8 +1,3 @@
-"""
-TODO: visual interface with a table where you can check cells off to indicate presence of a relationship (or uncheck to indicate lack of)
-TODO: make nodes dragable
-"""
-
 import networkx as nx
 import matplotlib.pyplot as plt
 import csv
