@@ -8,6 +8,9 @@ import matplotlib.pyplot as plt
 import csv
 import math
 
+import tkinter as tk
+from tkinter import ttk
+
 class Node:
     # ===Constructor===
     def __init__(self, name, peopleDict, posList=None, negList=None, workList=None):
@@ -375,10 +378,219 @@ def draw_people_graph(
     plt.tight_layout()
     plt.show()
 
+# ===UI===
+class RelationshipMatrixUI(tk.Tk):
+    def __init__(self, people_dict: PeopleDict, on_change=None):
+        super().__init__()
+        self.title("Relationship Matrix")
+        self.people_dict = people_dict
+        self.on_change = on_change # For redrawing graphs.
+
+        self._syncing = False
+
+        # Consistent, stable ordering of names alphabetically.
+        self.names = sorted(self.people_dict.people.keys())
+        self.vars = {}  # (a,b,kind) -> BooleanVar
+
+        # ===Scrollable frame===
+        # Containers
+        container = ttk.Frame(self)
+        container.pack(fill="both", expand=True)
+
+        # Scrolling
+        canvas = tk.Canvas(container)
+        vscroll = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        hscroll = ttk.Scrollbar(container, orient="horizontal", command=canvas.xview)
+        canvas.configure(yscrollcommand=vscroll.set, xscrollcommand=hscroll.set)
+
+        vscroll.pack(side="right", fill="y")
+        hscroll.pack(side="bottom", fill="x")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        self.table = ttk.Frame(canvas)
+        window_id = canvas.create_window((0, 0), window=self.table, anchor="nw")
+
+        def _on_frame_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def _on_canvas_configure(event):
+            # keep the table anchored and allow horizontal expansion
+            canvas.itemconfigure(window_id, width=max(event.width, 400))
+
+        self.table.bind("<Configure>", _on_frame_configure)
+        canvas.bind("<Configure>", _on_canvas_configure)
+
+        self._build_table()
+
+        # Buttons
+        btn_row = ttk.Frame(self)
+        btn_row.pack(fill="x", padx=8, pady=8)
+
+        ttk.Button(btn_row, text="Export CSV", command=self._export).pack(side="left")
+        ttk.Button(btn_row, text="Close", command=self.destroy).pack(side="right")
+
+    def _export(self):
+        # quick default; you can add a file dialog if you want
+        self.people_dict.exportRelationshipsToCSV("relationships_out.csv")
+        print("Exported to relationships_out.csv")
+
+    def _build_table(self):
+        names = self.names
+
+        # Header row: blank corner + column names (names of people)
+        ttk.Label(self.table, text="from \\ to", padding=4).grid(row=0, column=0, sticky="nsew")
+        for j, b in enumerate(names, start=1):
+            ttk.Label(self.table, text=b, padding=4).grid(row=0, column=j, sticky="nsew")
+
+        # Each row: row label (names of people) + cells
+        for i, a in enumerate(names, start=1):
+            ttk.Label(self.table, text=a, padding=4).grid(row=i, column=0, sticky="nsew")
+
+            for j, b in enumerate(names, start=1):
+                cell = ttk.Frame(self.table, padding=2)
+                cell.grid(row=i, column=j, sticky="nsew")
+
+                # Disables self-relationships
+                if a == b:
+                    ttk.Label(cell, text="—").pack()
+                    continue
+                
+                # Reading exisiting data
+                node_a = self.people_dict.people[a]
+
+                # Initial values
+                init_pos = node_a.hasPos(b) if hasattr(node_a, "hasPos") else (b in node_a.getPos())
+                init_neg = node_a.hasNeg(b) if hasattr(node_a, "hasNeg") else (b in node_a.getNeg())
+                init_work = node_a.hasWork(b) if hasattr(node_a, "hasWork") else (b in node_a.getWork())
+
+                vpos = tk.BooleanVar(value=init_pos)
+                vneg = tk.BooleanVar(value=init_neg)
+                vwrk = tk.BooleanVar(value=init_work)
+
+                self.vars[(a, b, "positive")] = vpos
+                self.vars[(a, b, "negative")] = vneg
+                self.vars[(a, b, "working")]  = vwrk
+
+                # Three small checkbuttons stacked (or pack side-by-side if you prefer)
+                ttk.Checkbutton(
+                    cell, text="+", variable=vpos,
+                    command=lambda A=a, B=b: self._toggle(A, B, "positive")
+                ).pack(anchor="w")
+
+                ttk.Checkbutton(
+                    cell, text="-", variable=vneg,
+                    command=lambda A=a, B=b: self._toggle(A, B, "negative")
+                ).pack(anchor="w")
+
+                ttk.Checkbutton(
+                    cell, text="~", variable=vwrk,
+                    command=lambda A=a, B=b: self._toggle(A, B, "working")
+                ).pack(anchor="w")
+
+        # make grid cells stretch nicer
+        for c in range(len(names) + 1):
+            self.table.columnconfigure(c, weight=1)
+
+    def _toggle(self, a, b, kind):
+        """
+        Called whenever a checkbox changes.
+        Uses your existing Node add/remove methods.
+        """
+        self.people_dict.ensurePerson(a)
+        self.people_dict.ensurePerson(b)
+        node_a = self.people_dict.people[a]
+
+        v = self.vars[(a, b, kind)].get()
+
+        if kind == "positive":
+            if v: node_a.addPos([b])
+            else:
+                if hasattr(node_a, "safeRemovePos"): node_a.safeRemovePos(b)
+                else:
+                    if b in node_a.getPos(): node_a.removePos([b])
+
+        elif kind == "negative":
+            if v: node_a.addNeg([b])
+            else:
+                if hasattr(node_a, "safeRemoveNeg"): node_a.safeRemoveNeg(b)
+                else:
+                    if b in node_a.getNeg(): node_a.removeNeg([b])
+
+        elif kind == "working":
+            if v: node_a.addWork([b])
+            else:
+                if hasattr(node_a, "safeRemoveWork"): node_a.safeRemoveWork(b)
+                else:
+                    if b in node_a.getWork(): node_a.removeWork([b])
+
+        # optional callback (e.g., redraw graph)
+        if self.on_change:
+            self.on_change()
+   
+    # Apply one directional change (a -> b) to PeopleDict using Node methods.
+    def _apply_model_change(self, a, b, kind, checked: bool):
+        self.people_dict.ensurePerson(a)
+        self.people_dict.ensurePerson(b)
+        node_a = self.people_dict.people[a]
+
+        if kind == "positive":
+            if checked:
+                node_a.addPos([b])
+            else:
+                if hasattr(node_a, "safeRemovePos"):
+                    node_a.safeRemovePos(b)
+                else:
+                    if b in node_a.getPos():
+                        node_a.removePos([b])
+
+        elif kind == "negative":
+            if checked:
+                node_a.addNeg([b])
+            else:
+                if hasattr(node_a, "safeRemoveNeg"):
+                    node_a.safeRemoveNeg(b)
+                else:
+                    if b in node_a.getNeg():
+                        node_a.removeNeg([b])
+
+        elif kind == "working":
+            if checked:
+                node_a.addWork([b])
+            else:
+                if hasattr(node_a, "safeRemoveWork"):
+                    node_a.safeRemoveWork(b)
+                else:
+                    if b in node_a.getWork():
+                        node_a.removeWork([b])
+
+        else:
+            raise ValueError(f"Unknown kind: {kind}")
+
+    # Set UI checkbox state if it exists (won't call _toggle).
+    def _set_checkbox(self, a, b, kind, checked: bool):
+        key = (a, b, kind)
+        var = self.vars.get(key)
+        if var is not None:
+            var.set(checked)
+
 
 # ===Testing===
 
 # ===Main===
+'''
 relationships = PeopleDict()
 relationships.addRelationshipsFromCSV("relationships.csv")
 draw_people_graph(relationships, layout="spring", show_edge_labels=False)
+'''
+
+if __name__ == "__main__":
+    relationships = PeopleDict()
+    relationships.addRelationshipsFromCSV("relationships.csv")
+
+    # Launch the table UI
+    app = RelationshipMatrixUI(relationships)
+    app.mainloop()  # <-- this starts the UI and blocks until you close it
+
+    # After you close the UI, draw the graph (using edited relationships)
+    draw_people_graph(relationships, layout="spring", show_edge_labels=False)
+
