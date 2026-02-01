@@ -10,6 +10,9 @@ import math
 
 import tkinter as tk
 from tkinter import ttk
+from tkinter import messagebox
+
+import os
 
 class Node:
     # ===Constructor===
@@ -380,13 +383,28 @@ def draw_people_graph(
 
 # ===UI===
 class RelationshipMatrixUI(tk.Tk):
-    def __init__(self, people_dict: PeopleDict, on_change=None):
+    def __init__(self, people_dict: PeopleDict, csv_path="relationships.csv", on_change=None):
         super().__init__()
         self.title("Relationship Matrix")
         self.people_dict = people_dict
+
+        self.csv_path = csv_path
+
+        # For noting unsaved changes
+        self._dirty = False
+
+        # Snapshot original file so we can discard changes on exit if needed
+        self._original_csv_text = ""
+        if os.path.exists(self.csv_path):
+            with open(self.csv_path, "r", encoding="utf-8") as f:
+                self._original_csv_text = f.read()
+
         self.on_change = on_change # For redrawing graphs.
 
         self._syncing = False
+
+        # Exiting window works like discarding changes
+        self.protocol("WM_DELETE_WINDOW", self._on_window_close)
 
         # Consistent, stable ordering of names alphabetically.
         self.names = sorted(self.people_dict.people.keys())
@@ -426,13 +444,48 @@ class RelationshipMatrixUI(tk.Tk):
         btn_row = ttk.Frame(self)
         btn_row.pack(fill="x", padx=8, pady=8)
 
-        ttk.Button(btn_row, text="Export CSV", command=self._export).pack(side="left")
-        ttk.Button(btn_row, text="Close", command=self.destroy).pack(side="right")
+        ttk.Button(btn_row, text="Save", command=self._save).pack(side="left")
+        ttk.Button(btn_row, text="Save & Exit", command=self._save_and_exit).pack(side="left", padx=8)
+        ttk.Button(btn_row, text="Exit (Don’t Save)", command=self._exit_no_save).pack(side="right")
 
-    def _export(self):
-        # quick default; you can add a file dialog if you want
-        self.people_dict.exportRelationshipsToCSV("relationships_out.csv")
-        print("Exported to relationships_out.csv")
+        # Save/unsaved status
+        self.status_var = tk.StringVar(value="Ready")
+        status = ttk.Label(self, textvariable=self.status_var, anchor="w")
+        status.pack(fill="x", padx=8, pady=(0, 8))
+
+    # ===Saving and/or Exit Methods===
+    def _save(self):
+        # Overwrite relationships.csv
+        self.people_dict.exportRelationshipsToCSV(self.csv_path)
+        self._dirty = False
+        print(f"Saved to {self.csv_path}")
+
+    def _save_and_exit(self):
+        self._save()
+        self.destroy()
+
+    def _exit_no_save(self):
+        # Restore original CSV content into the PeopleDict, then close.
+        self.people_dict.people.clear()
+
+        if self._original_csv_text.strip():
+            # Write snapshot to a temp file-like path and reload
+            # (PeopleDict reads from a path, so simplest is to re-read via a real temp file)
+            tmp_path = self.csv_path + ".__tmp_restore__"
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                f.write(self._original_csv_text)
+
+            self.people_dict.addRelationshipsFromCSV(tmp_path)
+
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+
+        self._dirty = False
+        self.status_var.set("Exited without saving: discarded changes")
+        self.destroy()
+
 
     def _build_table(self):
         names = self.names
@@ -491,11 +544,8 @@ class RelationshipMatrixUI(tk.Tk):
         for c in range(len(names) + 1):
             self.table.columnconfigure(c, weight=1)
 
+    # Called whenever a checkbox changes
     def _toggle(self, a, b, kind):
-        """
-        Called whenever a checkbox changes.
-        Uses your existing Node add/remove methods.
-        """
         self.people_dict.ensurePerson(a)
         self.people_dict.ensurePerson(b)
         node_a = self.people_dict.people[a]
@@ -526,6 +576,11 @@ class RelationshipMatrixUI(tk.Tk):
         # optional callback (e.g., redraw graph)
         if self.on_change:
             self.on_change()
+        
+        # Notes unsaved changes
+        self._dirty = True
+        self.status_var.set("Unsaved changes")
+
    
     # Apply one directional change (a -> b) to PeopleDict using Node methods.
     def _apply_model_change(self, a, b, kind, checked: bool):
@@ -572,6 +627,25 @@ class RelationshipMatrixUI(tk.Tk):
         var = self.vars.get(key)
         if var is not None:
             var.set(checked)
+    
+    def _on_window_close(self):
+        if not self._dirty:
+            self.destroy()
+            return
+
+        choice = messagebox.askyesnocancel(
+            "Unsaved changes",
+            "You have unsaved changes.\n\nYes = Save & Exit\nNo = Exit (Don’t Save)\nCancel = Keep editing"
+        )
+
+        if choice is True:
+            self._save_and_exit()
+        elif choice is False:
+            self._exit_no_save()
+        else:
+            # Cancel and do nothing
+            return
+
 
 
 # ===Testing===
@@ -588,8 +662,9 @@ if __name__ == "__main__":
     relationships.addRelationshipsFromCSV("relationships.csv")
 
     # Launch the table UI
-    app = RelationshipMatrixUI(relationships)
-    app.mainloop()  # <-- this starts the UI and blocks until you close it
+    app = RelationshipMatrixUI(relationships, csv_path="relationships.csv")
+    # Starts the UI and blocks until you close it
+    app.mainloop()
 
     # After you close the UI, draw the graph (using edited relationships)
     draw_people_graph(relationships, layout="spring", show_edge_labels=False)
