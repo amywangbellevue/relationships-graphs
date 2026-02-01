@@ -23,3 +23,5 @@ python people_graph.py
 - TODO: make nodes dragable
 - TODO: allow reopening of table editing view after closing table and opening graph
 - TODO: editing from graph view?
+- TODO: allow people with no relationships to persist
+  - possible fix: allow self-relationships, probably in a separate CSV that gets loaded in alongside the main relationships CSV. Self-relationships should not display or be editable. (Then to delete a person, we would delete the self-relationship)
