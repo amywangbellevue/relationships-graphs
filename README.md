@@ -26,3 +26,4 @@ python people_graph.py
 - TODO: editing from graph view?
 - TODO: allow people with no relationships to persist
   - possible fix: allow self-relationships, probably in a separate CSV that gets loaded in alongside the main relationships CSV. Self-relationships should not display or be editable. (Then to delete a person, we would delete the self-relationship)
+- TODO: rewrite this in Rust... (I have to actually learn Rust first T-T)
