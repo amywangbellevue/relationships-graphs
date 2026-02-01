@@ -4,10 +4,12 @@ A Python tool for modeling and visualizing directional, multi-type relationships
 between people.
 
 ## Features
-- Positive / negative / working relationships
-- Directed multi-edges with curved arrows
-- CSV import/export
-- NetworkX + Matplotlib visualization
+- visual spring-loaded graph displaying relationships as edges and people as nodes
+- three types of relationships: positive (denoted + in the table), negative (denoted -), and working (denoted ~ and for relationships that are neutral and/or workplace in nature)
+- multi-select for simultaneous multiple kinds of relationships between two people
+- curved graph lines for one-directional relationships and straight graph lines for reciprocal relationship
+- .csv file importing for relationships between people
+- table view for quicker editing of relationships between existing people (people with no relationships are removed)
 
 ## Example
 ```bash
