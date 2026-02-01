@@ -44,7 +44,7 @@ class Node:
                 self.addPos([i[0]])
             elif i[1] == "negative":
                 self.addNeg([i[0]])
-            elif i[1] == "work":
+            elif i[1] == "working":
                 self.addWork([i[0]])
             else:
                 raise ValueError(f"Unknown relationship type: {i[1]}")
@@ -52,15 +52,18 @@ class Node:
     # ===Removing relationships===
     def removePos(self, rel):
         for i in rel:
-            self.posList.remove(i)
+            if i in self.posList:
+                self.posList.remove(i)
 
     def removeNeg(self, rel):
         for i in rel:
-            self.negList.remove(i)
+            if i in self.negList:
+                self.negList.remove(i)
     
     def removeWork(self, rel):
         for i in rel:
-            self.workList.remove(i)
+            if i in self.workList:
+                self.workList.remove(i)
 
     # ===Getting attributes===
     def getPos(self):
