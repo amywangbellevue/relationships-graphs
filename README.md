@@ -13,8 +13,13 @@ between people.
 ```bash
 python people_graph.py
 ```
+(This is a placeholder lol)
 
 ## TODO
-- TODO: visual interface with a table where you can check cells off to indicate presence of a relationship (or uncheck to indicate lack of)
-- TODO: live graph updates
+- ~~DONE: visual interface with a table where you can check cells off to indicate presence of a relationship (or uncheck to indicate lack of)~~
+- ~~DONE: live graph updates~~
+- TODO: make the UI less laggy?
+- TODO: make the UI more visually appealing and possibly less visually confusing...
 - TODO: make nodes dragable
+- TODO: allow reopening of table editing view after closing table and opening graph
+- TODO: editing from graph view?
