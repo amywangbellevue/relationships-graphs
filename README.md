@@ -19,6 +19,7 @@ python people_graph.py
 - ~~DONE: visual interface with a table where you can check cells off to indicate presence of a relationship (or uncheck to indicate lack of)~~
 - ~~DONE: live graph updates~~
 - TODO: make the UI less laggy?
+  - possible fix: calculate/render after user finishes resizing window, not during/calculate in the background while the resizing/scrolling is happening/navigation with arrow keys so we render one new row/col at a time?
 - TODO: make the UI more visually appealing and possibly less visually confusing...
 - TODO: make nodes dragable
 - TODO: allow reopening of table editing view after closing table and opening graph
