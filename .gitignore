@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+
+# OS junk
+.DS_Store
+
+# matplotlib cache
+.matplotlib/
+
+# relationships data
+*.csv
